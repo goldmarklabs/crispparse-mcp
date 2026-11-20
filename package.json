@@ -1,1 +1,21 @@
-{"name":"@crispparse/mcp-server","version":"1.0.0","description":"Official MCP tool wrapper for CrispParse autonomous web extraction API","type":"module","bin":{"crispparse-mcp":"./index.js"},"dependencies":{"@modelcontextprotocol/sdk":"^1.0.0"}}
+{
+  "name": "@crispparse/mcp-server",
+  "version": "1.0.0",
+  "description": "Local stdio Model Context Protocol (MCP) server for deterministic web extraction to clean Markdown and JSON via CrispParse.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "crispparse-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/goldmarklabs/crispparse-mcp.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}
