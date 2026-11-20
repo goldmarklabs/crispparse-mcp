@@ -1,0 +1,1 @@
+{"name":"@crispparse/mcp-server","version":"1.0.0","description":"Official MCP tool wrapper for CrispParse autonomous web extraction API","type":"module","bin":{"crispparse-mcp":"./index.js"},"dependencies":{"@modelcontextprotocol/sdk":"^1.0.0"}}
