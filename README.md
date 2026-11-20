@@ -1,5 +1,7 @@
 # CrispParse MCP Server
 
+[![CrispParse MCP Server MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/goldmarklabs/crispparse-mcp/badges/card.svg)](https://glama.ai/mcp/servers/goldmarklabs/crispparse-mcp)
+
 A self-contained Model Context Protocol (`stdio`) server implementation built with `@modelcontextprotocol/sdk` that exposes deterministic web extraction tools to MCP-compatible AI agents and desktop clients (Claude Desktop, Cursor, Windsurf, and Cline).
 
 ## How It Works
