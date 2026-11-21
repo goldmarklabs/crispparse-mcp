@@ -8,6 +8,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 
 const API_URL = process.env.CRISPPARSE_API_URL || "https://api.crispparse.com/v1/extract";
 const TRIAL_URL = process.env.CRISPPARSE_TRIAL_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/trial/claim");
+const VERIFY_URL = process.env.CRISPPARSE_VERIFY_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/verify");
 const DEFAULT_API_KEY = process.env.CRISPPARSE_API_KEY || "";
 const DEFAULT_PAYMENT_SIGNATURE = process.env.CRISPPARSE_PAYMENT_SIGNATURE || "";
 const AUTO_CLAIM_TRIAL = process.env.CRISPPARSE_AUTO_CLAIM_TRIAL !== "false";
@@ -61,7 +62,7 @@ async function claimTrialToken(forceRefresh = false) {
 }
 
 const server = new Server(
-  { name: "crispparse-mcp-server", version: "1.0.2" },
+  { name: "crispparse-mcp-server", version: "1.0.3" },
   { capabilities: { tools: {} } }
 );
 
@@ -69,12 +70,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "crispparse_extract",
-      description: "Extract clean, LLM-ready Markdown or structured JSON from any public URL using CrispParse (auto-provisions a free 50-credit trial Macaroon if no API key or x402 PAYMENT-SIGNATURE is configured).",
+      description: "Extract clean, LLM-ready Markdown, structured JSON, or Hybrid output from any public URL using CrispParse's deterministic 3-tier waterfall (static HTTP, headless JS render, and self-healing CSS selectors) with C2PA provenance.",
       inputSchema: {
         type: "object",
         properties: {
           url: { type: "string", description: "The full http:// or https:// URL to extract." },
-          mode: { type: "string", enum: ["markdown", "json"], description: "Output format (defaults to markdown)." },
+          mode: {
+            type: "string",
+            enum: ["markdown", "json", "hybrid"],
+            description: "Output format: 'markdown' (default), 'json' (structured fields/JSON-LD), or 'hybrid' (both Markdown and structured data)."
+          },
+          selectors: {
+            type: "object",
+            additionalProperties: { type: "string" },
+            description: "Optional map of field_name -> CSS selector (up to 30 fields). Automatically triggers Tier 2 JS rendering and Tier 3 self-healing selector recovery if needed."
+          },
+          bypass_cache: {
+            type: "boolean",
+            description: "Set true to bypass edge cache and force a fresh live extraction (defaults to false)."
+          },
           api_key: { type: "string", description: "Optional CrispParse Macaroon bearer token (overrides CRISPPARSE_API_KEY)." },
           payment_signature: { type: "string", description: "Optional x402 v2 PAYMENT-SIGNATURE Base USDC proof header (overrides CRISPPARSE_PAYMENT_SIGNATURE)." }
         },
@@ -89,6 +103,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           force_refresh: { type: "boolean", description: "Request a fresh trial token instead of returning the cached token." }
         }
+      }
+    },
+    {
+      name: "crispparse_verify",
+      description: "Cryptographically verify a detached C2PA v2.4 provenance manifest returned by crispparse_extract.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          provenance: {
+            type: "object",
+            description: "The 'provenance' object from a CrispParse extraction response."
+          }
+        },
+        required: ["provenance"]
       }
     }
   ]
@@ -110,12 +138,40 @@ server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
     }
   }
 
+  if (params.name === "crispparse_verify") {
+    const provenance = params.arguments?.provenance;
+    if (!provenance || typeof provenance !== "object" || Array.isArray(provenance)) {
+      return { isError: true, content: [{ type: "text", text: "Missing or invalid parameter: provenance object" }] };
+    }
+    try {
+      const response = await fetch(VERIFY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(provenance)
+      });
+      const bodyText = await response.text();
+      return { isError: !response.ok, content: [{ type: "text", text: bodyText }] };
+    } catch (error) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `CrispParse verify request failed: ${error instanceof Error ? error.message : String(error)}` }]
+      };
+    }
+  }
+
   if (params.name !== "crispparse_extract") {
     return { isError: true, content: [{ type: "text", text: `Unknown tool: ${params.name}` }] };
   }
 
   const targetUrl = params.arguments?.url;
-  const mode = params.arguments?.mode === "json" ? "json" : "markdown";
+  const rawMode = params.arguments?.mode;
+  const mode = (rawMode === "json" || rawMode === "hybrid") ? rawMode : "markdown";
+  const rawSelectors = params.arguments?.selectors;
+  const selectors = (rawSelectors && typeof rawSelectors === "object" && !Array.isArray(rawSelectors) && Object.keys(rawSelectors).length > 0)
+    ? rawSelectors
+    : undefined;
+  const bypassCache = Boolean(params.arguments?.bypass_cache);
+
   let apiKey = (typeof params.arguments?.api_key === "string" && params.arguments.api_key) || DEFAULT_API_KEY;
   const paymentSignature = (typeof params.arguments?.payment_signature === "string" && params.arguments.payment_signature) || DEFAULT_PAYMENT_SIGNATURE;
 
@@ -141,10 +197,17 @@ server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
       ...(paymentSignature ? { "PAYMENT-SIGNATURE": paymentSignature } : {})
     };
 
+    const payload = {
+      url: targetUrl,
+      mode,
+      ...(selectors ? { selectors } : {}),
+      ...(bypassCache ? { bypass_cache: true } : {})
+    };
+
     const response = await fetch(API_URL, {
       method: "POST",
       headers,
-      body: JSON.stringify({ url: targetUrl, mode })
+      body: JSON.stringify(payload)
     });
 
     const bodyText = await response.text();
