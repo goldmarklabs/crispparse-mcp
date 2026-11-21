@@ -1,0 +1,15 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      crispparseApiKey:
+        type: string
+        title: CrispParse API Key
+        description: Optional Macaroon key (auto-claims 50 free credits if omitted)
+  commandFunction: |-
+    (config) => ({
+      command: 'npx',
+      args: ['-y', 'crispparse-mcp'],
+      env: config.crispparseApiKey ? { CRISPPARSE_API_KEY: config.crispparseApiKey } : {}
+    })
