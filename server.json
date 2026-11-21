@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.goldmarklabs/crispparse-mcp",
+  "description": "Deterministic web extraction (Markdown, JSON, CSS selectors) and C2PA v2.4 verification.",
+  "repository": {
+    "url": "https://github.com/goldmarklabs/crispparse-mcp",
+    "source": "github"
+  },
+  "version": "1.0.4",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "crispparse-mcp",
+      "version": "1.0.4",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CRISPPARSE_API_KEY",
+          "description": "Optional CrispParse Macaroon API key (auto-claims a 50-credit free trial if omitted).",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
