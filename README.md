@@ -1,3 +1,5 @@
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/goldmarklabs/crispparse-mcp) [![CrispParse MCP on mcprush](https://mcprush.com/badge/crispparse-mcp/score.svg)](https://mcprush.com/to/crispparse-mcp?ref=badge)
+
 # CrispParse MCP Server
 
 [![CrispParse MCP Server MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/goldmarklabs/crispparse-mcp/badges/card.svg)](https://glama.ai/mcp/servers/goldmarklabs/crispparse-mcp)
