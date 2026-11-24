@@ -1,6 +1,6 @@
 {
   "name": "crispparse-mcp",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Local stdio Model Context Protocol (MCP) server for deterministic web extraction (Markdown, JSON, Hybrid, CSS selectors, Tier 2/3 stealth) and C2PA provenance verification via CrispParse.",
   "type": "module",
   "main": "index.js",
