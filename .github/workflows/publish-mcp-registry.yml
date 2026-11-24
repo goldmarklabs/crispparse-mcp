@@ -17,6 +17,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Wait for npm package propagation
+        run: |
+          VER=$(python3 -c 'import json; print(json.load(open("server.json"))["version"])')
+          echo "Waiting for crispparse-mcp@$VER on npm..."
+          for i in $(seq 1 24); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/crispparse-mcp/$VER")
+            if [ "$CODE" = "200" ]; then
+              echo "npm propagation confirmed ($VER -> HTTP 200)"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for npm version $VER" >&2
+          exit 1
       - name: Install mcp-publisher
         run: |
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar -xz mcp-publisher
@@ -24,4 +38,11 @@ jobs:
       - name: Publish to Official MCP Registry
         run: |
           mcp-publisher login github-oidc
-          mcp-publisher publish
+          for attempt in 1 2 3; do
+            if mcp-publisher publish; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
+          exit 1
