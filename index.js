@@ -62,7 +62,7 @@ async function claimTrialToken(forceRefresh = false) {
 }
 
 const server = new Server(
-  { name: "crispparse-mcp-server", version: "1.0.3" },
+  { name: "crispparse-mcp-server", version: "1.0.7" },
   { capabilities: { tools: {} } }
 );
 
