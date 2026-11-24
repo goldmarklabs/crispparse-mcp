@@ -45,7 +45,7 @@ Add the server to your Claude Desktop (`claude_desktop_config.json`) or Cursor M
   "mcpServers": {
     "crispparse": {
       "command": "npx",
-      "args": ["-y", "crispparse-mcp@1.0.8"]
+      "args": ["-y", "crispparse-mcp@1.0.9"]
     }
   }
 }
@@ -82,3 +82,4 @@ MIT — see [LICENSE](./LICENSE).
 
 * **Zero-Setup URL Prefix (`GET /r/<url>`):** Prepend `https://api.crispparse.com/r/` to any URL (e.g., `https://api.crispparse.com/r/https://example.com`) for instant LLM-ready Markdown (`text/markdown`), real token-savings headers (`X-CrispParse-Tokens-Saved`), 10/hr keyless preview, or autonomous `x402` Base Mainnet USDC micro-settlement.
 * **Indirect Prompt-Injection Shield (`security_audit`):** Automatically strips hidden CSS injection vectors (`display:none`, `visibility:hidden`, `opacity:0`, `font-size:0`, `[hidden]`) before Markdown conversion and returns a structured `security_audit` report (`prompt_injection_detected`, `threat_level`, `hidden_vectors_stripped`, `matched_rules`) on every response.
+* **Tier-1 Fast Markdown (`crispparse_extract_fast` / `POST /v1/extract/fast`):** 1-credit (`$0.00165` Base USDC) deterministic Markdown extraction with C2PA provenance and Prompt-Injection Shield (`0` credits charged if JS rendering is required).

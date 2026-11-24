@@ -9,6 +9,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 const API_URL = process.env.CRISPPARSE_API_URL || "https://api.crispparse.com/v1/extract";
 const TRIAL_URL = process.env.CRISPPARSE_TRIAL_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/trial/claim");
 const VERIFY_URL = process.env.CRISPPARSE_VERIFY_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/verify");
+const FAST_API_URL = process.env.CRISPPARSE_FAST_API_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/extract/fast");
 const DEFAULT_API_KEY = process.env.CRISPPARSE_API_KEY || "";
 const DEFAULT_PAYMENT_SIGNATURE = process.env.CRISPPARSE_PAYMENT_SIGNATURE || "";
 const AUTO_CLAIM_TRIAL = process.env.CRISPPARSE_AUTO_CLAIM_TRIAL !== "false";
@@ -62,7 +63,7 @@ async function claimTrialToken(forceRefresh = false) {
 }
 
 const server = new Server(
-  { name: "crispparse-mcp-server", version: "1.0.8" },
+  { name: "crispparse-mcp-server", version: "1.0.9" },
   { capabilities: { tools: {} } }
 );
 
@@ -89,6 +90,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "boolean",
             description: "Set true to bypass edge cache and force a fresh live extraction (defaults to false)."
           },
+          api_key: { type: "string", description: "Optional CrispParse Macaroon bearer token (overrides CRISPPARSE_API_KEY)." },
+          payment_signature: { type: "string", description: "Optional x402 v2 PAYMENT-SIGNATURE Base USDC proof header (overrides CRISPPARSE_PAYMENT_SIGNATURE)." }
+        },
+        required: ["url"]
+      }
+    },
+    {
+      name: "crispparse_extract_fast",
+      description: "Fast, low-cost Tier-1 static Markdown extraction (1 credit / $0.00165 Base USDC) with C2PA v2.4 provenance and Prompt-Injection Shield. Fails fast with 0 credits charged if the target requires JS rendering.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "The full http:// or https:// URL to extract." },
+          bypass_cache: { type: "boolean", description: "Set true to bypass edge cache and force a fresh live extraction (defaults to false)." },
           api_key: { type: "string", description: "Optional CrispParse Macaroon bearer token (overrides CRISPPARSE_API_KEY)." },
           payment_signature: { type: "string", description: "Optional x402 v2 PAYMENT-SIGNATURE Base USDC proof header (overrides CRISPPARSE_PAYMENT_SIGNATURE)." }
         },
@@ -159,7 +174,7 @@ server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
     }
   }
 
-  if (params.name !== "crispparse_extract") {
+  if (params.name !== "crispparse_extract" && params.name !== "crispparse_extract_fast") {
     return { isError: true, content: [{ type: "text", text: `Unknown tool: ${params.name}` }] };
   }
 
@@ -197,14 +212,20 @@ server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
       ...(paymentSignature ? { "PAYMENT-SIGNATURE": paymentSignature } : {})
     };
 
-    const payload = {
-      url: targetUrl,
-      mode,
-      ...(selectors ? { selectors } : {}),
-      ...(bypassCache ? { bypass_cache: true } : {})
-    };
+    const isFast = params.name === "crispparse_extract_fast";
+    const payload = isFast
+      ? {
+          url: targetUrl,
+          ...(bypassCache ? { bypass_cache: true } : {})
+        }
+      : {
+          url: targetUrl,
+          mode,
+          ...(selectors ? { selectors } : {}),
+          ...(bypassCache ? { bypass_cache: true } : {})
+        };
 
-    const response = await fetch(API_URL, {
+    const response = await fetch(isFast ? FAST_API_URL : API_URL, {
       method: "POST",
       headers,
       body: JSON.stringify(payload)
