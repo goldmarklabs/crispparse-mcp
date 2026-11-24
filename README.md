@@ -77,3 +77,8 @@ docker run -i --rm -e CRISPPARSE_API_KEY="your_api_key" crispparse-mcp
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+## Instant URL Prefix & Indirect Prompt-Injection Shield
+
+* **Zero-Setup URL Prefix (`GET /r/<url>`):** Prepend `https://api.crispparse.com/r/` to any URL (e.g., `https://api.crispparse.com/r/https://example.com`) for instant LLM-ready Markdown (`text/markdown`), real token-savings headers (`X-CrispParse-Tokens-Saved`), 10/hr keyless preview, or autonomous `x402` Base Mainnet USDC micro-settlement.
+* **Indirect Prompt-Injection Shield (`security_audit`):** Automatically strips hidden CSS injection vectors (`display:none`, `visibility:hidden`, `opacity:0`, `font-size:0`, `[hidden]`) before Markdown conversion and returns a structured `security_audit` report (`prompt_injection_detected`, `threat_level`, `hidden_vectors_stripped`, `matched_rules`) on every response.
