@@ -10,6 +10,7 @@ const API_URL = process.env.CRISPPARSE_API_URL || "https://api.crispparse.com/v1
 const TRIAL_URL = process.env.CRISPPARSE_TRIAL_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/trial/claim");
 const VERIFY_URL = process.env.CRISPPARSE_VERIFY_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/verify");
 const FAST_API_URL = process.env.CRISPPARSE_FAST_API_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/extract/fast");
+const BALANCE_URL = process.env.CRISPPARSE_BALANCE_URL || API_URL.replace(/\/v1\/extract\/?$/, "/v1/keys/balance");
 const DEFAULT_API_KEY = process.env.CRISPPARSE_API_KEY || "";
 const DEFAULT_PAYMENT_SIGNATURE = process.env.CRISPPARSE_PAYMENT_SIGNATURE || "";
 const AUTO_CLAIM_TRIAL = process.env.CRISPPARSE_AUTO_CLAIM_TRIAL !== "false";
@@ -63,7 +64,7 @@ async function claimTrialToken(forceRefresh = false) {
 }
 
 const server = new Server(
-  { name: "crispparse-mcp-server", version: "1.0.9" },
+  { name: "crispparse-mcp-server", version: "1.1.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -91,7 +92,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             description: "Set true to bypass edge cache and force a fresh live extraction (defaults to false)."
           },
           api_key: { type: "string", description: "Optional CrispParse Macaroon bearer token (overrides CRISPPARSE_API_KEY)." },
-          payment_signature: { type: "string", description: "Optional x402 v2 PAYMENT-SIGNATURE Base USDC proof header (overrides CRISPPARSE_PAYMENT_SIGNATURE)." }
+          payment_signature: { type: "string", description: "Optional x402 v2 PAYMENT-SIGNATURE Base USDC proof header (overrides CRISPPARSE_PAYMENT_SIGNATURE)." },
+          block_prompt_injection: { type: "boolean", description: "Abort with an error if Prompt-Injection Shield detects adversarial instructions (defaults to false)." }
         },
         required: ["url"]
       }
@@ -105,7 +107,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           url: { type: "string", description: "The full http:// or https:// URL to extract." },
           bypass_cache: { type: "boolean", description: "Set true to bypass edge cache and force a fresh live extraction (defaults to false)." },
           api_key: { type: "string", description: "Optional CrispParse Macaroon bearer token (overrides CRISPPARSE_API_KEY)." },
-          payment_signature: { type: "string", description: "Optional x402 v2 PAYMENT-SIGNATURE Base USDC proof header (overrides CRISPPARSE_PAYMENT_SIGNATURE)." }
+          payment_signature: { type: "string", description: "Optional x402 v2 PAYMENT-SIGNATURE Base USDC proof header (overrides CRISPPARSE_PAYMENT_SIGNATURE)." },
+          block_prompt_injection: { type: "boolean", description: "Abort with an error if Prompt-Injection Shield detects adversarial instructions (defaults to false)." }
         },
         required: ["url"]
       }
@@ -119,6 +122,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           force_refresh: { type: "boolean", description: "Request a fresh trial token instead of returning the cached token." }
         }
       }
+    },
+    {
+      name: "crispparse_balance",
+      description: "Check remaining Macaroon credit balance, tier, and RPS rate limit.",
+      inputSchema: { type: "object", properties: { api_key: { type: "string", description: "Optional Macaroon bearer token." } } }
     },
     {
       name: "crispparse_verify",
@@ -174,6 +182,18 @@ server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
     }
   }
 
+  if (params.name === "crispparse_balance") {
+    let k = (typeof params.arguments?.api_key === "string" && params.arguments.api_key) || DEFAULT_API_KEY;
+    if (!k && AUTO_CLAIM_TRIAL) { try { k = (await claimTrialToken(false)).token; } catch {} }
+    if (!k) return { isError: true, content: [{ type: "text", text: "No CrispParse API key configured or cached." }] };
+    try {
+      const r = await fetch(BALANCE_URL, { headers: { Authorization: `Bearer ${k}` } });
+      return { isError: !r.ok, content: [{ type: "text", text: await r.text() }] };
+    } catch (e) {
+      return { isError: true, content: [{ type: "text", text: `Balance check failed: ${e instanceof Error ? e.message : String(e)}` }] };
+    }
+  }
+
   if (params.name !== "crispparse_extract" && params.name !== "crispparse_extract_fast") {
     return { isError: true, content: [{ type: "text", text: `Unknown tool: ${params.name}` }] };
   }
@@ -186,6 +206,7 @@ server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
     ? rawSelectors
     : undefined;
   const bypassCache = Boolean(params.arguments?.bypass_cache);
+  const blockPromptInjection = Boolean(params.arguments?.block_prompt_injection);
 
   let apiKey = (typeof params.arguments?.api_key === "string" && params.arguments.api_key) || DEFAULT_API_KEY;
   const paymentSignature = (typeof params.arguments?.payment_signature === "string" && params.arguments.payment_signature) || DEFAULT_PAYMENT_SIGNATURE;
@@ -254,21 +275,17 @@ server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
     }
 
     const paymentResponse = response.headers.get("payment-response");
-    if (response.ok && paymentResponse) {
-      return {
-        isError: false,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              paymentResponse,
-              result: safeJson(bodyText)
-            })
-          }
-        ]
-      };
+    const parsed = safeJson(bodyText);
+    if (response.ok && parsed && typeof parsed === "object") {
+      if (!parsed.security_audit || typeof parsed.security_audit !== "object") {
+        parsed.security_audit = { prompt_injection_detected: false, threat_level: "none", hidden_vectors_stripped: 0, matched_rules: [] };
+      }
+      if (blockPromptInjection && parsed.security_audit.prompt_injection_detected) {
+        return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: "Blocked by CrispParse Prompt-Injection Shield", security_audit: parsed.security_audit, ...(paymentResponse ? { paymentResponse } : {}) }) }] };
+      }
+      const out = paymentResponse ? { paymentResponse, result: parsed } : parsed;
+      return { isError: false, content: [{ type: "text", text: JSON.stringify(out) }] };
     }
-
     return { isError: !response.ok, content: [{ type: "text", text: bodyText }] };
   } catch (error) {
     return {

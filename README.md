@@ -45,7 +45,7 @@ Add the server to your Claude Desktop (`claude_desktop_config.json`) or Cursor M
   "mcpServers": {
     "crispparse": {
       "command": "npx",
-      "args": ["-y", "crispparse-mcp@1.0.9"]
+      "args": ["-y", "crispparse-mcp@1.1.0"]
     }
   }
 }
