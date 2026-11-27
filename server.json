@@ -3,7 +3,7 @@
   "name": "io.github.goldmarklabs/crispparse",
   "title": "CrispParse",
   "description": "Web extraction to Markdown & RAG chunks with C2PA v2.4 provenance and x402 Base USDC.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "websiteUrl": "https://crispparse.com",
   "icons": [
     {
