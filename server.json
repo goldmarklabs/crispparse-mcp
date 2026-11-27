@@ -1,28 +1,27 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.goldmarklabs/crispparse-mcp",
-  "description": "Deterministic web extraction (Markdown, JSON, CSS selectors) and C2PA v2.4 verification.",
+  "name": "io.github.goldmarklabs/crispparse",
+  "title": "CrispParse",
+  "description": "Web extraction to Markdown & RAG chunks with C2PA v2.4 provenance and x402 Base USDC.",
+  "version": "1.0.1",
+  "websiteUrl": "https://crispparse.com",
+  "icons": [
+    {
+      "src": "https://crispparse.com/icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/goldmarklabs/crispparse-mcp",
     "source": "github"
   },
-  "version": "1.1.0",
-  "packages": [
+  "remotes": [
     {
-      "registryType": "npm",
-      "identifier": "crispparse-mcp",
-      "version": "1.1.0",
-      "transport": {
-        "type": "stdio"
-      },
-      "environmentVariables": [
-        {
-          "name": "CRISPPARSE_API_KEY",
-          "description": "Optional CrispParse Macaroon API key (auto-claims a 50-credit free trial if omitted).",
-          "isRequired": false,
-          "isSecret": true
-        }
-      ]
+      "type": "streamable-http",
+      "url": "https://api.crispparse.com/mcp"
     }
   ]
 }
